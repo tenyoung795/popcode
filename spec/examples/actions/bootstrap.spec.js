@@ -297,7 +297,7 @@ describe('bootstrap', () => {
   });
 
   function dispatchBootstrap(gistId) {
-    store.dispatch(bootstrap(gistId));
+    store.dispatch(bootstrap({gist: gistId}));
     return waitForAsync();
   }
 });

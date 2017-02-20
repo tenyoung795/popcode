@@ -114,13 +114,11 @@ class Workspace extends React.Component {
   }
 
   componentWillMount() {
-    let gistId;
-    if (location.search) {
-      const query = qs.parse(location.search.slice(1));
-      gistId = query.gist;
-    }
+    const query = location.search ?
+      qs.parse(location.search.slice(1)) :
+      {};
     history.replaceState({}, '', location.pathname);
-    this.props.dispatch(bootstrap(gistId));
+    this.props.dispatch(bootstrap(query));
     this._listenForAuthChange();
     startSessionHeartbeat();
   }

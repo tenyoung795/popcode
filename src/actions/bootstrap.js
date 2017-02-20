@@ -10,7 +10,7 @@ import {userAuthenticated} from './user';
 import {notificationTriggered} from './ui';
 import {loadAllProjects} from '.';
 
-export default function bootstrap(gistId) {
+export default function bootstrap({gist: gistId}) {
   return async (dispatch) => {
     const userStateResolved = getInitialUserState();
 

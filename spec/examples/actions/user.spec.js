@@ -34,7 +34,7 @@ describe('user actions', () => {
     beforeEach(() => {
       storedProject = buildProject({sources: {html: 'bogus<'}});
       mockFirebase.logOut();
-      return dispatchAndWait(store, bootstrap());
+      return dispatchAndWait(store, bootstrap({}));
     });
 
     context('with locally pristine project', () => {
@@ -138,7 +138,7 @@ describe('user actions', () => {
     beforeEach(async () => {
       mockFirebase.logIn(user.uid);
       mockFirebase.setCurrentProject(null);
-      await dispatchAndWait(store, bootstrap());
+      await dispatchAndWait(store, bootstrap({}));
       createAndMutateProject(store);
       loggedInProjectKey = getCurrentProject(store.getState()).projectKey;
       return dispatchAndWait(store, logOut());
