@@ -1,6 +1,5 @@
 import assign from 'lodash/assign';
 import isEmpty from 'lodash/isEmpty';
-import get from 'lodash/get';
 import trim from 'lodash/trim';
 import promiseRetry from 'promise-retry';
 import gitHub from './gitHub';
@@ -63,21 +62,8 @@ export function createGistFromProject(project) {
   };
 }
 
-function clientForUser(user) {
-  const githubToken = getGithubToken(user);
-  if (githubToken) {
-    return gitHub.withAccessToken(githubToken);
-  }
-
-  return gitHub.anonymous();
-}
-
-function getGithubToken(user) {
-  return get(user, ['accessTokens', 'github.com']);
-}
-
 function canUpdateGist(user) {
-  return Boolean(getGithubToken(user));
+  return Boolean(gitHub.getGithubToken(user));
 }
 
 async function updateGistWithImportUrl(github, gistData) {
@@ -100,7 +86,7 @@ function createPopcodeJson(project) {
 
 const Gists = {
   async createFromProject(project, user) {
-    const github = clientForUser(user);
+    const github = gitHub.clientForUser(user);
 
     const gist = createGistFromProject(project);
     if (isEmpty(gist.files)) {
@@ -118,7 +104,7 @@ const Gists = {
   },
 
   async loadFromId(gistId, user) {
-    const github = clientForUser(user);
+    const github = gitHub.clientForUser(user);
     const gist = github.getGist(gistId);
     const response = await performWithRetries(() => gist.read(), {retries: 3});
     return response.data;

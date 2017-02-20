@@ -5,13 +5,11 @@ import gitHub from '../../src/services/gitHub';
 
 export default class MockGitHub {
   constructor(sandbox) {
-    sandbox.stub(gitHub);
-    this._anonymousClient = sinon.createStubInstance(GitHub);
-    this._activeClient = this._anonymousClient;
+    this._activeClient = sinon.createStubInstance(GitHub);
     this._activeClient.getGist.returns({
       read: () => new Promise(() => {}),
     });
-    gitHub.anonymous.returns(this._anonymousClient);
+    sandbox.stub(gitHub, 'anonymous', () => this._activeClient);
   }
 
   loadGist(data) {
