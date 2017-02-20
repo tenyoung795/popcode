@@ -10,35 +10,46 @@ import {userAuthenticated} from './user';
 import {notificationTriggered} from './ui';
 import {loadAllProjects} from '.';
 
-export default function bootstrap({gist: gistId}) {
+export default function bootstrap({gist: gistId, user, repo}) {
   return async (dispatch) => {
-    const userStateResolved = getInitialUserState();
-
-    const promisedGist = retrieveGist(gistId).catch((error) => {
-      dispatch(notificationTriggered(error, 'error', {gistId}));
-      return null;
-    });
-
-    const [gist, userCredential] =
-      await Promise.all([promisedGist, userStateResolved]);
-
-    if (userCredential) {
-      dispatch(userAuthenticated(userCredential));
-      dispatch(loadAllProjects());
+    async function userStateResolved() {
+      const userCredential = await getInitialUserState();
+      if (userCredential) {
+        dispatch(userAuthenticated(userCredential));
+        dispatch(loadAllProjects());
+      }
+      return userCredential;
     }
 
-    if (gist) {
-      dispatch(initializeCurrentProjectFromGist(gist));
-    } else {
-      dispatch(createProject());
+    const isGist = Boolean(gistId);
+    const isRepo = user && repo;
+
+    async function promisedGist() {
+      try {
+        return await retrieveGist(gistId);
+      } catch (error) {
+        dispatch(notificationTriggered(error, 'error', {gistId}));
+        return null;
+      }
     }
+
+    if (isGist && isRepo) {
+      dispatch(notificationTriggered('url-query-error'));
+    } else if (isGist) {
+      const [gist] = await Promise.all([promisedGist(), userStateResolved()]);
+      if (gist) {
+        dispatch(initializeCurrentProjectFromGist(gist));
+      } else {
+        dispatch(createProject());
+      }
+      return;
+    }
+    await userStateResolved();
+    dispatch(createProject());
   };
 }
 
 function retrieveGist(gistId) {
-  if (!gistId) {
-    return Promise.resolve(null);
-  }
   return Gists.
     loadFromId(gistId, {authenticated: false}).
     catch((error) => {

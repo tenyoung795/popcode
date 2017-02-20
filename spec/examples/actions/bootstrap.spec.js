@@ -29,7 +29,7 @@ describe('bootstrap', () => {
 
   context('no gist ID', () => {
     context('before auth resolves', () => {
-      beforeEach(() => dispatchBootstrap());
+      beforeEach(() => dispatchBootstrap({}));
 
       it('should have no current project by default', () => {
         assert.isNull(
@@ -41,7 +41,7 @@ describe('bootstrap', () => {
     context('when auth resolves logged out', () => {
       beforeEach(() => {
         mockFirebase.logOut();
-        return dispatchBootstrap();
+        return dispatchBootstrap({});
       });
 
       it('should create a new current project', () => {
@@ -63,7 +63,7 @@ describe('bootstrap', () => {
           mockFirebase.logIn(uid);
           mockFirebase._setValue(`authTokens/${uid}/github_com`, null);
           mockFirebase.setCurrentProject(null);
-          return dispatchBootstrap();
+          return dispatchBootstrap({});
         });
 
         it('should not log the user in', () => {
@@ -85,7 +85,7 @@ describe('bootstrap', () => {
           beforeEach(() => {
             credential = mockFirebase.logIn(uid).credential;
             mockFirebase.setCurrentProject(null);
-            return dispatchBootstrap();
+            return dispatchBootstrap({});
           });
 
           it('should log the user in', () => {
@@ -114,7 +114,7 @@ describe('bootstrap', () => {
             project = buildProject({sources: {html: 'bogus<'}});
             credential = mockFirebase.logIn(uid).credential;
             mockFirebase.setCurrentProject(project);
-            return dispatchBootstrap();
+            return dispatchBootstrap({});
           });
 
           it('should create a new project', () => {
@@ -132,7 +132,7 @@ describe('bootstrap', () => {
     const gistId = '12345';
 
     context('before auth or gist resolve', () => {
-      beforeEach(() => dispatchBootstrap(gistId));
+      beforeEach(() => dispatchBootstrap({gist: gistId}));
 
       it('should have no current project', () => {
         assert.isNull(
@@ -144,7 +144,7 @@ describe('bootstrap', () => {
     context('if only auth has resolved', () => {
       beforeEach(() => {
         mockFirebase.logOut();
-        return dispatchBootstrap(gistId);
+        return dispatchBootstrap({gist: gistId});
       });
 
       it('should have no current project', () => {
@@ -157,7 +157,7 @@ describe('bootstrap', () => {
     context('if only gist has resolved', () => {
       beforeEach(() => {
         mockGitHub.loadGist(buildGist(gistId));
-        return dispatchBootstrap(gistId);
+        return dispatchBootstrap({gist: gistId});
       });
 
       it('should have no current project', () => {
@@ -177,7 +177,7 @@ describe('bootstrap', () => {
       context('with logged out user', () => {
         beforeEach(() => {
           mockFirebase.logOut();
-          return dispatchBootstrap(gistId);
+          return dispatchBootstrap({gist: gistId});
         });
 
         it('should have a current project', () => {
@@ -198,7 +198,7 @@ describe('bootstrap', () => {
         beforeEach(() => {
           mockFirebase.logIn('123');
           mockFirebase.setCurrentProject(buildProject());
-          return dispatchBootstrap(gistId);
+          return dispatchBootstrap({gist: gistId});
         });
 
         it('should have a current project', () => {
@@ -223,7 +223,7 @@ describe('bootstrap', () => {
           Reflect.deleteProperty(gist.files, 'popcode.json');
           mockGitHub.loadGist(gist);
           mockFirebase.logOut();
-          return dispatchBootstrap(gistId);
+          return dispatchBootstrap({gist: gistId});
         });
 
         it('should add empty libraries by default', () => {
@@ -239,7 +239,7 @@ describe('bootstrap', () => {
           const gist = buildGist(gistId, {enabledLibraries: ['jquery']});
           mockGitHub.loadGist(gist);
           mockFirebase.logOut();
-          return dispatchBootstrap(gistId);
+          return dispatchBootstrap({gist: gistId});
         });
 
         it('should load libraries into project', () => {
@@ -254,7 +254,7 @@ describe('bootstrap', () => {
         beforeEach(() => {
           mockFirebase.logOut();
           mockGitHub.gistNotFound(gistId);
-          return dispatchBootstrap(gistId);
+          return dispatchBootstrap({gist: gistId});
         });
 
         it('should create a new project', () => {
@@ -276,7 +276,7 @@ describe('bootstrap', () => {
         beforeEach(() => {
           mockFirebase.logOut();
           mockGitHub.gistError(gistId);
-          return dispatchBootstrap(gistId);
+          return dispatchBootstrap({gist: gistId});
         });
 
         it('should create a new project', () => {
@@ -296,8 +296,54 @@ describe('bootstrap', () => {
     });
   });
 
-  function dispatchBootstrap(gistId) {
-    store.dispatch(bootstrap({gist: gistId}));
+  describe('attempt to import both a gist and a repository', () => {
+    const gistId = '12345';
+    const javascript = '// imported from Gist';
+
+    beforeEach(() => {
+      mockGitHub.loadGist(buildGist(gistId, {sources: {javascript}}));
+    });
+
+    context('logged out', () => {
+      beforeEach(() => mockFirebase.logOut());
+      tests();
+    });
+
+    context('logged in', () => {
+      beforeEach(() => mockFirebase.logIn('123'));
+      tests();
+    });
+
+    function tests() {
+      beforeEach(() => dispatchBootstrap(
+        {gist: gistId, user: 'foo', repo: 'bar'},
+      ));
+
+      it('should still have a current project', () => {
+        assert.isNotNull(
+          store.getState().getIn(['currentProject', 'projectKey']),
+        );
+      });
+
+      it('should refuse to import the gist', () => {
+        assert.notEqual(
+          getCurrentProject(store.getState()).sources.javascript,
+          javascript,
+        );
+      });
+
+      it('should add a notification', () => {
+        assert.include(
+          store.getState().getIn(['ui', 'notifications']).toJS().
+          map(property('type')),
+          'url-query-error',
+        );
+      });
+    }
+  });
+
+  function dispatchBootstrap(query) {
+    store.dispatch(bootstrap(query));
     return waitForAsync();
   }
 });
