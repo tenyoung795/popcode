@@ -18,3 +18,10 @@ export function isPristineProject(project) {
   }
   return !('updatedAt' in project);
 }
+
+export function createPopcodeJson(project) {
+  const json = {
+    enabledLibraries: project.enabledLibraries,
+  };
+  return JSON.stringify(json);
+}

@@ -3,6 +3,7 @@ import isEmpty from 'lodash/isEmpty';
 import trim from 'lodash/trim';
 import promiseRetry from 'promise-retry';
 import gitHub from './gitHub';
+import {createPopcodeJson} from '../util/projectUtils';
 
 function performWithRetries(perform, options = {}) {
   return promiseRetry(
@@ -75,13 +76,6 @@ async function updateGistWithImportUrl(github, gistData) {
   const description = `${gistData.description} Click to import: ${uri.href}`;
   const response = await performWithRetries(() => gist.update({description}));
   return response.data;
-}
-
-function createPopcodeJson(project) {
-  const json = {
-    enabledLibraries: project.enabledLibraries,
-  };
-  return JSON.stringify(json);
 }
 
 const Gists = {
