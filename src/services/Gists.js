@@ -1,26 +1,8 @@
-import assign from 'lodash/assign';
 import isEmpty from 'lodash/isEmpty';
 import trim from 'lodash/trim';
-import promiseRetry from 'promise-retry';
-import gitHub from './gitHub';
+import performWithRetries from '../util/performWithRetries';
 import {createPopcodeJson} from '../util/projectUtils';
-
-function performWithRetries(perform, options = {}) {
-  return promiseRetry(
-    retry => perform().catch((error) => {
-      if (error.message === 'Network Error') {
-        return retry(error);
-      }
-      return Promise.reject(error);
-    }),
-    assign({
-      retries: 5,
-      factor: 2,
-      minTimeout: 1000,
-      maxTimeout: 10000,
-    }, options),
-  );
-}
+import gitHub from './gitHub';
 
 export function EmptyGistError(message) {
   this.name = 'EmptyGistError';
