@@ -132,12 +132,12 @@ export function loadAllProjects() {
     }
 
     const projects = await persistor.all();
-    projects.forEach((project) => {
+    await Promise.all(projects.map(project =>
       dispatch({
         type: 'PROJECT_LOADED',
         payload: {project},
-      });
-    });
+      }),
+    ));
   };
 }
 

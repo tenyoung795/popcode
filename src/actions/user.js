@@ -12,10 +12,12 @@ const resetWorkspace = createAction('RESET_WORKSPACE', identity);
 const userLoggedOut = createAction('USER_LOGGED_OUT');
 
 export function logIn(user, credential) {
-  return (dispatch, getState) => {
-    dispatch(userAuthenticated({user, credential}));
-    saveCurrentProject(getState());
-    dispatch(loadAllProjects());
+  return async (dispatch, getState) => {
+    await Promise.all([
+      dispatch(userAuthenticated({user, credential})),
+      saveCurrentProject(getState()),
+    ]);
+    await dispatch(loadAllProjects());
   };
 }
 

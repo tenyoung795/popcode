@@ -296,12 +296,283 @@ describe('bootstrap', () => {
     });
   });
 
+  describe('importing a repository', () => {
+    const owner = 'popcodeorg';
+    const name = 'popcode';
+    const uid = '123';
+
+    context('logged out', () => {
+      beforeEach(() => mockFirebase.logOut());
+
+      context('user accepts', () => {
+        beforeEach(() => mockFirebase.userAccepts(uid));
+        whenLoggedIn();
+      });
+
+      context('user cancels', () => {
+        beforeEach(() => {
+          mockFirebase.userCancels();
+          return dispatchBootstrap({user: owner, repo: name});
+        });
+
+        it('should create a new regular project', () => {
+          assert.isNotNull(
+            store.getState().getIn(['currentProject', 'projectKey']),
+          );
+          assert.notProperty(getCurrentProject(store.getState()), 'repo');
+        });
+
+        it('should add a notification', () => {
+          assert.include(
+            store.getState().getIn(['ui', 'notifications']).toJS().
+            map(property('type')),
+            'user-cancelled-repo-auth',
+          );
+        });
+      });
+    });
+
+    context('logged in', () => {
+      beforeEach(() => mockFirebase.logIn(uid));
+      whenLoggedIn();
+    });
+
+    function whenLoggedIn() {
+      const html = {
+        name: 'index.html',
+        sha: 1,
+        data: `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Imported from master</title>
+  </head>
+  <body>
+    <p>Imported from master</p>
+  </body>
+</html>
+`,
+      };
+      const css = {
+        name: 'styles.css',
+        sha: 2,
+        data: '# Imported from master\n',
+      };
+      const javascript = {
+        name: 'script.js',
+        sha: 3,
+        data: '// Imported from master\n',
+      };
+      const popcode = {
+        name: 'popcode.json',
+        sha: 4,
+        data: `{
+  "enabledLibraries": [
+    "jquery"
+  ]
+}
+`,
+      };
+
+      context('when the repository exists and blobs work', () => {
+        beforeEach(() => mockGitHub.loadRepo(
+          owner, name, html, css, javascript, popcode,
+        ));
+
+        context('when the user never imported the repository before', () => {
+          const project = buildProject(
+            {repo: {owner: 'github', name: 'gitignore'}},
+          );
+
+          beforeEach(() => {
+            mockFirebase.setCurrentProject(project);
+            return dispatchBootstrap({user: owner, repo: name});
+          });
+
+          it('should create a new project', () => {
+            assert.notEqual(
+              store.getState().getIn(['currentProject', 'projectKey']),
+              project.projectKey,
+            );
+          });
+
+          it('should set html', () => {
+            assert.deepPropertyVal(
+              getCurrentProject(store.getState()),
+              'sources.html',
+              html.data,
+            );
+          });
+
+          it('should set css', () => {
+            assert.deepPropertyVal(
+              getCurrentProject(store.getState()),
+              'sources.css',
+              css.data,
+            );
+          });
+
+          it('should set javascript', () => {
+            assert.deepPropertyVal(
+              getCurrentProject(store.getState()),
+              'sources.javascript',
+              javascript.data,
+            );
+          });
+
+          it('should load libraries', () => {
+            assert.include(
+              getCurrentProject(store.getState()).enabledLibraries,
+              'jquery',
+            );
+          });
+
+          aboutTheCurrentProject();
+        });
+
+        context('when the user imported the repository before', () => {
+          const project = buildProject({repo: {owner, name}});
+
+          beforeEach(() => {
+            mockFirebase.setCurrentProject(project);
+            return dispatchBootstrap({user: owner, repo: name});
+          });
+
+          it('should find the repo project', () => {
+            assert.equal(
+              store.getState().getIn(['currentProject', 'projectKey']),
+              project.projectKey,
+            );
+          });
+
+          it('should not set html', () => {
+            assert.deepPropertyNotVal(
+              getCurrentProject(store.getState()),
+              'sources.html',
+              html.data,
+            );
+          });
+
+          it('should not set css', () => {
+            assert.deepPropertyNotVal(
+              getCurrentProject(store.getState()),
+              'sources.css',
+              css.data,
+            );
+          });
+
+          it('should not set javascript', () => {
+            assert.deepPropertyNotVal(
+              getCurrentProject(store.getState()),
+              'sources.javascript',
+              javascript.data,
+            );
+          });
+
+          it('should not load libraries', () => {
+            assert.notInclude(
+              getCurrentProject(store.getState()).enabledLibraries,
+              'jquery',
+            );
+          });
+
+          aboutTheCurrentProject();
+        });
+
+        function aboutTheCurrentProject() {
+          it('should save the repo owner', () => {
+            assert.deepPropertyVal(
+              getCurrentProject(store.getState()), 'repo.owner', owner,
+            );
+          });
+
+          it('should save the repo name', () => {
+            assert.deepPropertyVal(
+              getCurrentProject(store.getState()), 'repo.name', name,
+            );
+          });
+        }
+      });
+
+      context('when the repository exists but the blobs are broken', () => {
+        beforeEach(() => {
+          mockGitHub.loadRepoButBrokenBlobs(
+            owner, name, html, css, javascript, popcode,
+          );
+          return dispatchBootstrap({user: owner, repo: name});
+        });
+
+        it('should create a new regular project', () => {
+          assert.isNotNull(
+            store.getState().getIn(['currentProject', 'projectKey']),
+          );
+          assert.notProperty(getCurrentProject(store.getState()), 'repo');
+        });
+
+        it('should add a notification', () => {
+          assert.include(
+            store.getState().getIn(['ui', 'notifications']).toJS().
+            map(property('type')),
+            'repo-import-error',
+          );
+        });
+      });
+
+      context('when the repository is not found', () => {
+        beforeEach(() => {
+          mockGitHub.repoNotFound(owner, name);
+          return dispatchBootstrap({user: owner, repo: name});
+        });
+
+        it('should create a new regular project', () => {
+          assert.isNotNull(
+            store.getState().getIn(['currentProject', 'projectKey']),
+          );
+          assert.notProperty(getCurrentProject(store.getState()), 'repo');
+        });
+
+        it('should add a notification', () => {
+          assert.include(
+            store.getState().getIn(['ui', 'notifications']).toJS().
+            map(property('type')),
+            'repo-import-not-found',
+          );
+        });
+      });
+
+      context('when another repository error happens', () => {
+        beforeEach(() => {
+          mockGitHub.repoError(owner, name);
+          return dispatchBootstrap({user: owner, repo: name});
+        });
+
+        it('should create a new regular project', () => {
+          assert.isNotNull(
+            store.getState().getIn(['currentProject', 'projectKey']),
+          );
+          assert.notProperty(getCurrentProject(store.getState()), 'repo');
+        });
+
+        it('should add a notification', () => {
+          assert.include(
+            store.getState().getIn(['ui', 'notifications']).toJS().
+            map(property('type')),
+            'repo-import-error',
+          );
+        });
+      });
+    }
+  });
+
   describe('attempt to import both a gist and a repository', () => {
     const gistId = '12345';
-    const javascript = '// imported from Gist';
+    const gistJs = '// imported from Gist';
+
+    const owner = 'popcodeorg';
+    const name = 'popcode';
 
     beforeEach(() => {
-      mockGitHub.loadGist(buildGist(gistId, {sources: {javascript}}));
+      mockGitHub.loadGist(buildGist(gistId, {sources: {javascript: gistJs}}));
+      mockGitHub.loadRepo(owner, name);
     });
 
     context('logged out', () => {
@@ -315,9 +586,9 @@ describe('bootstrap', () => {
     });
 
     function tests() {
-      beforeEach(() => dispatchBootstrap(
-        {gist: gistId, user: 'foo', repo: 'bar'},
-      ));
+      beforeEach(() =>
+        dispatchBootstrap({gist: gistId, user: owner, repo: name}),
+      );
 
       it('should still have a current project', () => {
         assert.isNotNull(
@@ -328,8 +599,12 @@ describe('bootstrap', () => {
       it('should refuse to import the gist', () => {
         assert.notEqual(
           getCurrentProject(store.getState()).sources.javascript,
-          javascript,
+          gistJs,
         );
+      });
+
+      it('should refuse to import the repository', () => {
+        assert.notProperty(getCurrentProject(store.getState()), 'repo');
       });
 
       it('should add a notification', () => {

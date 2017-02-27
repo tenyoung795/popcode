@@ -84,6 +84,19 @@ export default class MockFirebase {
     return {user, credential};
   }
 
+  userAccepts(uid) {
+    auth.signInWithPopup.returns(new Promise((resolve) => {
+      resolve(this.logIn(uid));
+    }));
+  }
+
+  userCancels() {
+    auth.signInWithPopup.returns(Promise.reject({
+      code: 'auth/popup-closed-by-user',
+      message: '¯\\_(ツ)_/¯',
+    }));
+  }
+
   logOut() {
     this._currentUid = null;
     auth.onAuthStateChanged.yieldsAsync(null);

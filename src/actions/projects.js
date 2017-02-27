@@ -78,3 +78,36 @@ function generateProjectKey() {
   const date = new Date();
   return (date.getTime() * 1000 + date.getMilliseconds()).toString();
 }
+
+export function setCurrentProjectToRepo(repo, contents) {
+  return (dispatch, getState) => {
+    const maybeProjectKey = getState().get('projects').findKey(
+      project => project.getIn(['repo', 'owner']) === repo.owner &&
+                 project.getIn(['repo', 'name']) === repo.name,
+    );
+    if (maybeProjectKey) {
+      dispatch(changeCurrentProject(maybeProjectKey));
+      return;
+    }
+    const project = createProjectFromRepo(
+      generateProjectKey(), repo, contents,
+    );
+    dispatch(loadCurrentProject(project));
+  };
+}
+
+function createProjectFromRepo(
+  projectKey, repo, {html, css, javascript, popcode}) {
+  const popcodeJson = popcode ? JSON.parse(popcode) : {};
+  return {
+    projectKey,
+    repo,
+    sources: {
+      html: html || '',
+      css: css || '',
+      javascript: javascript || '',
+    },
+    enabledLibraries: popcodeJson.enabledLibraries || [],
+    updatedAt: Date.now(),
+  };
+}
